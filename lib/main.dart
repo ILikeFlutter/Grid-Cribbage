@@ -16,7 +16,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'Grid Cribbage',
       theme: ThemeData(
         textTheme: TextTheme(
           bodyMedium: TextStyle(
@@ -39,21 +39,21 @@ class MyApp extends StatelessWidget {
           ),
         ),
       ),
-      home: const Griddage(title: 'Griddage'),
+      home: const GridCribbage(title: 'Grid Cribbage'),
     );
   }
 }
 
-class Griddage extends StatefulWidget {
-  const Griddage({super.key, required this.title});
+class GridCribbage extends StatefulWidget {
+  const GridCribbage({super.key, required this.title});
 
   final String title;
 
   @override
-  State<Griddage> createState() => _GriddageState();
+  State<GridCribbage> createState() => _GridCribbageState();
 }
 
-class _GriddageState extends State<Griddage> {
+class _GridCribbageState extends State<GridCribbage> {
 
   int playerTurn = 1;
   late List<List<SuitedCard>> cardsState;
