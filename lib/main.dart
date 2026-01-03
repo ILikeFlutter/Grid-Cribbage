@@ -15,12 +15,13 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    bool smallScreen = MediaQuery.sizeOf(context).width < 700;
     return MaterialApp(
       title: 'Grid Cribbage',
       theme: ThemeData(
         textTheme: TextTheme(
           bodyMedium: TextStyle(
-              fontSize: 20,
+              fontSize: smallScreen?14:20,
               letterSpacing: 1,
               fontFamily: GoogleFonts.robotoMono().fontFamily
           )
@@ -383,50 +384,57 @@ class _GridCribbageState extends State<GridCribbage> {
 
   @override
   Widget build(BuildContext context) {
+    bool smallScreen = MediaQuery.sizeOf(context).width < 700;
       return Scaffold(
         appBar: AppBar(
           title: Text(widget.title),
         ),
         body: SafeArea(
             child: CardGame<SuitedCard, int>(
-          style: deckCardStyle(),
+          style: deckCardStyle(sizeMultiplier: smallScreen ? 0.8 : 1),
           children: [
             Padding(
                 padding: EdgeInsetsGeometry.only(top: 10, left: 20, right: 20, bottom: MediaQuery.sizeOf(context).height * 0.2),
                 child: Column(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  mainAxisAlignment: smallScreen
+                      ? MainAxisAlignment.center
+                      : MainAxisAlignment.spaceEvenly,
                   children: List.generate(5, (rowIndex) {
-                    return Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: List.generate(5, (colIndex) {
-                        final index = rowIndex * 5 + colIndex;
-                        final states = cardsState[index];
-                        return CardColumn<SuitedCard, int>(
-                          value: index,
-                          values: states,
-                          maxGrabStackSize: 1,
-                          canMoveCardHere: (move) {
-                            return states.isEmpty;
-                          },
-                          onCardMovedHere: (move) {
-                            setState(() {
-                              final newCards = [...cardsState];
-                              newCards[move.fromGroupValue].removeLast();
-                              newCards[index].add(move.cardValues.first);
-                              cardsState = newCards;
-                              currentGrid[rowIndex][colIndex] = move.cardValues.first;
-                              if (playerTurn == 1) {
-                                playerTurn = 2;
-                                runComputerTurn();
-                              } else {
-                                playerTurn = 1;
-                              }
-                              updateScores();
-                            });
-                          },
-                        );
+                    return Expanded(
+                      child: Row(
+                        mainAxisAlignment: smallScreen
+                            ? MainAxisAlignment.center
+                            : MainAxisAlignment.spaceEvenly,
+                        children: List.generate(5, (colIndex) {
+                          final index = rowIndex * 5 + colIndex;
+                          final states = cardsState[index];
+                          return Expanded(
+                            child: CardColumn<SuitedCard, int>(
+                            value: index,
+                            values: states,
+                            maxGrabStackSize: 1,
+                            canMoveCardHere: (move) {
+                              return states.isEmpty;
+                            },
+                            onCardMovedHere: (move) {
+                              setState(() {
+                                final newCards = [...cardsState];
+                                newCards[move.fromGroupValue].removeLast();
+                                newCards[index].add(move.cardValues.first);
+                                cardsState = newCards;
+                                currentGrid[rowIndex][colIndex] = move.cardValues.first;
+                                if (playerTurn == 1) {
+                                  playerTurn = 2;
+                                  runComputerTurn();
+                                } else {
+                                  playerTurn = 1;
+                                }
+                                updateScores();
+                              });
+                            },
+                        ));
                       }),
-                    );
+                    ));
                   }),
             )),
             // The deck
@@ -440,10 +448,18 @@ class _GridCribbageState extends State<GridCribbage> {
                       canGrab: playerTurn == 1,
                 ))),
             Align(
-                alignment: Alignment.bottomRight,
+                alignment: Alignment.bottomCenter,
                 child: Padding(
-                    padding: EdgeInsetsGeometry.only(left: 10, bottom: 20, right: 100),
-                    child: Scoreboard(numberOfPlayers: playerCount, scores: _scores, activePlayer: playerTurn, gameFinishedWinningPlayer: _gameFinished?(_scores[0]>_scores[1])?1:2:null)))
+                    padding: EdgeInsetsGeometry.only(bottom: 15),
+                    child: Scoreboard(
+                        numberOfPlayers: playerCount,
+                        scores: _scores, activePlayer:
+                    playerTurn, gameFinishedWinningPlayer:
+                    _gameFinished
+                      ? (_scores[0]>_scores[1])
+                        ? 1
+                        : 2
+                      : null)))
           ],
         )),
         floatingActionButton: FloatingActionButton(
@@ -460,6 +476,7 @@ class Scoreboard extends StatelessWidget {
   final List<int> scores;
   final int activePlayer;
   final int? gameFinishedWinningPlayer;
+  final bool smallScreen;
 
   const Scoreboard({
     super.key,
@@ -467,15 +484,13 @@ class Scoreboard extends StatelessWidget {
     required this.scores,
     required this.activePlayer,
     this.gameFinishedWinningPlayer,
+    this.smallScreen = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    TextStyle activePlayerStyle = TextStyle(
-      color: Colors.white,
-      fontSize: 20,
-      fontWeight: FontWeight.bold,
-    );
+    TextStyle activePlayerStyle = Theme.of(context).textTheme.bodyMedium!
+        .copyWith(fontWeight: FontWeight.bold);
     return Column(
       mainAxisAlignment: MainAxisAlignment.start,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -487,13 +502,13 @@ class Scoreboard extends StatelessWidget {
             style: (gameFinishedWinningPlayer!=null)
                 ? activePlayerStyle
                 : null),
-        Text("Player 1 (rows):     ${scores[0]}",
+        Text("You (rows):    ${scores[0]}",
             style: ((activePlayer == 1 && !(gameFinishedWinningPlayer == 2))
                 || gameFinishedWinningPlayer == 1)
                 ? activePlayerStyle
                 : null
         ),
-        Text("Player 2 (columns):  ${scores[1]}",
+        Text("Bot (columns): ${scores[1]}",
             style: ((activePlayer == 2 && !(gameFinishedWinningPlayer == 1))
                 || gameFinishedWinningPlayer == 2)
                 ? activePlayerStyle
