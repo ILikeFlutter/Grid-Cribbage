@@ -131,15 +131,19 @@ class _GridCribbageState extends State<GridCribbage> {
     return 0;
   }
 
-  int findLineScore(List<SuitedCard?> cards, int player) {
-    debugPrint("");
-    debugPrint("Player $player score");
+  int findLineScore(List<SuitedCard?> cards, int player, int lineNumber) {
+    debugPrint("Player $player score for hand $lineNumber");
+    debugPrint("hand: ${cards.map((card) => (card!=null)
+        ? "${card.value} of ${card.suit}"
+        : "null")
+        .join(", ")}");
     int score = 0;
     bool allSameSuit = true;
     int straight = 1;
     int longestStraight = 1;
     List<int> values = [];
     List<int> sortedValues = [];
+    Set<int> longestStraightValues = {};
     CardSuit? lastSuit = cards[0]?.suit;
     for (SuitedCard? card in cards) {
       if (card == null) {
@@ -198,7 +202,7 @@ class _GridCribbageState extends State<GridCribbage> {
                       getCardNumberValue(card, for15s: true) == 15) {
                       debugPrint(
                           "Found a quad of cards that add to 15 "
-                              "adding 2 to player ${player}'s score");
+                              "adding 2 to player $player's score");
                       score += 2;
                   }
                 }
@@ -210,49 +214,58 @@ class _GridCribbageState extends State<GridCribbage> {
     }
     sortedValues = values.toSet().toList();
     sortedValues.sort();
+    int currentStraightLength = 1;
+    List<int> currentStraightValues = [];
+    if (sortedValues.isNotEmpty) {
+      currentStraightValues.add(sortedValues.first);
+    }
+
     for (int i = 0; i < sortedValues.length - 1; i++) {
       if (sortedValues[i] + 1 == sortedValues[i + 1]) {
-        straight++;
-        longestStraight = max(longestStraight, straight);
-        debugPrint("straight increasing to $straight for player ${player}");
+        currentStraightLength++;
+        currentStraightValues.add(sortedValues[i + 1]);
+        debugPrint("current straight increasing to $straight for player $player");
         if (i == sortedValues.length - 2 && sortedValues[i + 1] == 13 && sortedValues[0] == 1) {
-          straight++;
-          longestStraight = max(longestStraight, straight);
-          debugPrint("straight with high ace increasing to $straight for player ${player}");
+          currentStraightLength++;
+          currentStraightValues.add(1);
+          debugPrint("straight with high ace increasing to $straight for player $player");
         }
       } else {
-        longestStraight = max(longestStraight, straight);
-        straight = 0;
-      }
-    }
-    bool dupes = true;
-    if (sortedValues.length < values.length) {
-      // if any of the cards in values is the same as a card in sortedValues a straight can be made twice
-      for (int value in values) {
-        if (!sortedValues.contains(value)) {
-          dupes = false;
+        if (currentStraightLength > longestStraight) {
+          longestStraight = currentStraightLength;
+          longestStraightValues = Set.of(currentStraightValues);
         }
+        // Reset for the next potential straight.
+        currentStraightLength = 1;
+        currentStraightValues = [sortedValues[i + 1]];
       }
     }
-    for (int i = 0; i < values.length; i++) {
-      List<int> subList = values.sublist(i);
-      int value = values[i];
-      int count = (subList.where((j) => j == value )).length;
-      List<int> checkedValues = [];
-      if (checkedValues.contains(value)) {
-        continue;
-      }
-      checkedValues.add(value);
+    // Final check in case the longest straight was at the very end of the list.
+    if (currentStraightLength > longestStraight) {
+      longestStraight = currentStraightLength;
+      longestStraightValues = Set.of(currentStraightValues);
+    }
+    debugPrint("longest straight values: $longestStraightValues");
+
+
+    Map<int, int> counts = {};
+    for (int value in values) {
+      // Count occurrences of each card value
+      counts[value] = (counts[value] ?? 0) + 1;
+    }
+
+    for (int value in counts.keys) {
+      int count = counts[value]!;
       if (count == 4) {
-        // 12 points for each 4 of a kind
+        // 4 of a kind (6 pairs) = 12 points
         debugPrint("Found a 4 of a kind of ${value}s adding 12 to player ${player}'s score");
         score += 12;
       } else if (count == 3) {
-        // 6 points for each 3 of a kind
+        // 3 of a kind (3 pairs) = 6 points
         debugPrint("Found a 3 of a kind of ${value}s adding 6 to player ${player}'s score");
         score += 6;
       } else if (count == 2) {
-        // 2 points for each pair
+        // 1 pair = 2 points
         debugPrint("Found a pair of ${value}s adding 2 to player ${player}'s score");
         score += 2;
       }
@@ -264,20 +277,16 @@ class _GridCribbageState extends State<GridCribbage> {
     if (longestStraight == 5) {
       score += 5;
       debugPrint("Straight of 5 adding 5 to player ${player}'s score");
-    } else if (longestStraight == 4) {
-      score += 4;
-      debugPrint("Straight of 4 adding 4 to player ${player}'s score");
-      if (dupes) {
-        score += 4;
-        debugPrint("Second Straight of 4 adding 4 to player ${player}'s score");
+    } else if (longestStraight >= 3) {
+      int runMultiplier = 1;
+      // 'counts' map is already calculated from the pairs logic, we can reuse it!
+      for (int val in longestStraightValues) {
+        // For each card in the straight, multiply by its count in the hand.
+        runMultiplier *= counts[val]!;
       }
-    } else if (longestStraight == 3) {
-      score += 3;
-      debugPrint("Straight of 3 adding 3 to player ${player}'s score");
-      if (dupes) {
-        score += 3;
-        debugPrint("Second Straight of 3 adding 3 to player ${player}'s score");
-      }
+      int runScore = longestStraight * runMultiplier;
+      score += runScore;
+      debugPrint("Found straight of $longestStraight - x$runMultiplier times for $runScore points");
     }
     return score;
   }
@@ -286,11 +295,13 @@ class _GridCribbageState extends State<GridCribbage> {
     // Player 1 find the score in the rows
     _scores = [0,0];
     for (int i = 0; i < 5; i++) {
-      _scores[0] += findLineScore(currentGrid[i],1);
+      debugPrint("");
+      _scores[0] += findLineScore(currentGrid[i],1,i+1);
     }
     // Player 2 find the score in the columns
     for (int i = 0; i < 5; i++) {
-      _scores[1] += findLineScore(currentGrid.map((row) => row[i]).toList(),2);
+      debugPrint("");
+      _scores[1] += findLineScore(currentGrid.map((row) => row[i]).toList(),2,i+1);
     }
   }
 
@@ -324,7 +335,8 @@ class _GridCribbageState extends State<GridCribbage> {
         }
 
         // Score the potential column for Player 2
-        int score = findLineScore(potentialColumn, 2);
+        debugPrint("Finding potential bot moves");
+        int score = findLineScore(potentialColumn, 2, colIndex + 1);
 
         if (score > bestScore) {
           bestScore = score;
